@@ -1,4 +1,4 @@
-import type { AppSettings, ColorFilter } from '../App'
+import type { AppSettings, ColorFilter, SyncStatus } from '../App'
 import type { Chapter, Line } from '../lib/repertoire'
 import { isDue, isMastered, type ProgressMap } from '../lib/srs'
 import type { QueueItem } from './Trainer'
@@ -8,6 +8,7 @@ interface Props {
   activeLines: Line[]
   progress: ProgressMap
   settings: AppSettings
+  sync: SyncStatus
   onSettings: (s: AppSettings) => void
   onTrain: (title: string, queue: QueueItem[]) => void
   onOpenChapter: (id: string) => void
@@ -22,7 +23,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-export function Home({ chapters, activeLines, progress, settings, onSettings, onTrain, onOpenChapter }: Props) {
+export function Home({ chapters, activeLines, progress, settings, sync, onSettings, onTrain, onOpenChapter }: Props) {
   const now = Date.now()
   const filter = settings.colorFilter
   const inFilter = (l: Line) => filter === 'all' || l.color === filter
@@ -64,10 +65,10 @@ export function Home({ chapters, activeLines, progress, settings, onSettings, on
           </div>
           <div className="stat">
             <span className="stat-num">
-              {mastered.length}
+              {learning}
               <small>/{lines.length}</small>
             </span>
-            <span className="stat-label">익힌 라인</span>
+            <span className="stat-label">배운 라인 · 익힘 {mastered.length}</span>
           </div>
         </div>
 
@@ -88,6 +89,7 @@ export function Home({ chapters, activeLines, progress, settings, onSettings, on
             둡니다. 맞히면 내일 복습 목록에 올라갑니다.
           </p>
         )}
+        <SyncNote sync={sync} />
       </section>
 
       <h3 className="section-title">챕터</h3>
@@ -113,7 +115,7 @@ export function Home({ chapters, activeLines, progress, settings, onSettings, on
                   <div className="progress-mastered" style={{ width: pct(m, act.length) }} />
                 </div>
                 <span className="muted small">
-                  라인 {act.length}개 · 시작 {started} · 익힘 {m}
+                  라인 {act.length}개 · 배움 {started} · 익힘 {m}
                 </span>
               </button>
             )
@@ -125,4 +127,15 @@ export function Home({ chapters, activeLines, progress, settings, onSettings, on
 
 function pct(n: number, total: number) {
   return total === 0 ? '0%' : `${(n / total) * 100}%`
+}
+
+export function SyncNote({ sync }: { sync: SyncStatus }) {
+  if (sync === 'checking') return <p className="sync muted small">저장 공간 확인 중…</p>
+  if (sync === 'cloud') return <p className="sync ok small">● 진도가 내 Claude 계정에 저장됩니다. 다른 기기에서도 이어집니다.</p>
+  if (sync === 'local') return <p className="sync muted small">● 진도가 이 브라우저에 저장됩니다.</p>
+  return (
+    <p className="sync warn small">
+      ● 이 화면에서는 진도를 저장할 수 없어요. 새로고침하면 사라지니, 설정에서 백업 텍스트를 복사해 두세요.
+    </p>
+  )
 }

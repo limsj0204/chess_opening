@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AddLine } from './components/AddLine'
 import { ChapterView } from './components/ChapterView'
 import { Home } from './components/Home'
@@ -7,11 +7,15 @@ import { Trainer, type QueueItem } from './components/Trainer'
 import { Viewer } from './components/Viewer'
 import { BUILTIN_CHAPTERS } from './data/repertoire'
 import { buildChapters, buildCommentMap, EMPTY_CUSTOM, type CustomData } from './lib/repertoire'
-import { schedule, type ProgressMap } from './lib/srs'
-import { useStored } from './lib/storage'
+import { connectCloud, mergeProgress, type CloudDoc } from './lib/cloud'
+import { markLearned, schedule, type ProgressMap } from './lib/srs'
+import { loadJson, saveJson, storageAvailable, useStored } from './lib/storage'
 import type { Color } from './lib/types'
 
 export type ColorFilter = 'all' | Color
+
+/** 진도가 어디에 저장되는지 */
+export type SyncStatus = 'checking' | 'cloud' | 'local' | 'none'
 
 export interface AppSettings {
   newPerSession: number
@@ -34,6 +38,73 @@ export default function App() {
   const [disabled, setDisabled] = useStored<string[]>('disabled', [])
   const [settings, setSettings] = useStored<AppSettings>('settings', DEFAULT_SETTINGS)
   const [screen, setScreen] = useState<Screen>({ name: 'home' })
+  const [sync, setSync] = useState<SyncStatus>('checking')
+  const cloudRef = useRef<CloudDoc | null>(null)
+  const lastSaved = useRef<string | null>(null)
+  const mounted = useRef(false)
+
+  // 설정·라인 변경 시각(기기 간에 어느 쪽이 최신인지 고를 때 씁니다)
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true
+      return
+    }
+    saveJson('updatedAt', Date.now())
+  }, [custom, disabled, settings])
+
+  // claude.ai에서 열렸다면 계정 저장 공간에 연결해 기록을 합칩니다.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const cloud = await connectCloud()
+      if (cancelled) return
+      if (!cloud) {
+        setSync(storageAvailable() ? 'local' : 'none')
+        return
+      }
+      try {
+        const remote = await cloud.load()
+        if (cancelled) return
+        if (remote) {
+          lastSaved.current = JSON.stringify({
+            progress: remote.progress,
+            custom: remote.custom,
+            disabled: remote.disabled,
+            settings: remote.settings,
+          })
+          setProgress((local) => mergeProgress(local, remote.progress ?? {}))
+          if ((remote.updatedAt ?? 0) > loadJson<number>('updatedAt', 0)) {
+            if (remote.custom) setCustom(remote.custom)
+            if (Array.isArray(remote.disabled)) setDisabled(remote.disabled)
+            if (remote.settings) setSettings({ ...DEFAULT_SETTINGS, ...(remote.settings as AppSettings) })
+          }
+        }
+        cloudRef.current = cloud
+        setSync('cloud')
+      } catch {
+        setSync(storageAvailable() ? 'local' : 'none')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [setProgress, setCustom, setDisabled, setSettings])
+
+  // 바뀐 것이 있을 때만 계정에 저장합니다.
+  useEffect(() => {
+    const cloud = cloudRef.current
+    if (sync !== 'cloud' || !cloud) return
+    const body = JSON.stringify({ progress, custom, disabled, settings })
+    if (body === lastSaved.current) return
+    const t = setTimeout(() => {
+      lastSaved.current = body
+      cloud.save({ progress, custom, disabled, settings, updatedAt: Date.now() }).catch(() => {
+        lastSaved.current = null
+        setSync(storageAvailable() ? 'local' : 'none')
+      })
+    }, 700)
+    return () => clearTimeout(t)
+  }, [sync, progress, custom, disabled, settings])
 
   const chapters = useMemo(() => buildChapters(BUILTIN_CHAPTERS, custom), [custom])
   const disabledSet = useMemo(() => new Set(disabled), [disabled])
@@ -45,6 +116,11 @@ export default function App() {
   const record = useCallback(
     (lineId: string, success: boolean) =>
       setProgress((p) => ({ ...p, [lineId]: schedule(p[lineId], success, Date.now()) })),
+    [setProgress],
+  )
+
+  const learned = useCallback(
+    (lineId: string) => setProgress((p) => ({ ...p, [lineId]: markLearned(p[lineId], Date.now()) })),
     [setProgress],
   )
 
@@ -77,6 +153,7 @@ export default function App() {
           activeLines={activeLines}
           progress={progress}
           settings={settings}
+          sync={sync}
           onSettings={setSettings}
           onTrain={startTraining}
           onOpenChapter={(id) => setScreen({ name: 'chapter', id })}
@@ -114,6 +191,7 @@ export default function App() {
           lines={lineMap}
           comments={comments}
           onRecord={record}
+          onLearned={learned}
           onExit={() => setScreen(screen.back)}
         />
       )
@@ -150,6 +228,7 @@ export default function App() {
     case 'settings':
       body = (
         <Settings
+          sync={sync}
           settings={settings}
           onSettings={setSettings}
           data={{ progress, custom, disabled }}

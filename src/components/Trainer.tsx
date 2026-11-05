@@ -18,6 +18,8 @@ interface Props {
   comments: Map<string, string>
   /** 라인 하나를 끝냈을 때 간격 반복 일정에 반영합니다. */
   onRecord: (lineId: string, success: boolean) => void
+  /** 배우기(화살표 따라 두기)를 끝냈을 때 바로 기록합니다. */
+  onLearned: (lineId: string) => void
   onExit: () => void
 }
 
@@ -31,7 +33,7 @@ const MODE_LABEL: Record<TrainMode, string> = {
 
 const OPPONENT_DELAY = 550
 
-export function Trainer({ title, initialQueue, lines, comments, onRecord, onExit }: Props) {
+export function Trainer({ title, initialQueue, lines, comments, onRecord, onLearned, onExit }: Props) {
   const [queue, setQueue] = useState(initialQueue)
   const [qi, setQi] = useState(0)
   const [ply, setPly] = useState(0)
@@ -76,7 +78,9 @@ export function Trainer({ title, initialQueue, lines, comments, onRecord, onExit
     const again = (mode: TrainMode) => setQueue((q) => [...q, { lineId: item.lineId, mode }])
     switch (item.mode) {
       case 'learn':
-        again('test')
+        onLearned(item.lineId)
+        // 확인 테스트는 바로 다음에 둡니다(세션 중간에 그만둬도 배운 라인은 남습니다).
+        setQueue((q) => [...q.slice(0, qi + 1), { lineId: item.lineId, mode: 'test' }, ...q.slice(qi + 1)])
         break
       case 'test':
         if (perfect) onRecord(item.lineId, true)
@@ -90,7 +94,7 @@ export function Trainer({ title, initialQueue, lines, comments, onRecord, onExit
       case 'practice':
         break
     }
-  }, [finished, item, qi, mistakes, onRecord])
+  }, [finished, item, qi, mistakes, onRecord, onLearned])
 
   function resetForLine() {
     setPly(0)
@@ -208,7 +212,11 @@ export function Trainer({ title, initialQueue, lines, comments, onRecord, onExit
           {finished ? (
             <>
               <button className="btn primary" onClick={next}>
-                {qi + 1 < queue.length ? '다음 라인 →' : '결과 보기'}
+                {qi + 1 >= queue.length
+                  ? '결과 보기'
+                  : queue[qi + 1].mode === 'test' && queue[qi + 1].lineId === item.lineId
+                    ? '화살표 없이 다시 두기 →'
+                    : '다음 라인 →'}
               </button>
               <button className="btn" onClick={restartLine}>
                 한 번 더

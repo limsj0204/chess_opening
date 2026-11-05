@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
-import type { AppSettings } from '../App'
+import type { AppSettings, SyncStatus } from '../App'
 import type { CustomData } from '../lib/repertoire'
 import type { ProgressMap } from '../lib/srs'
 import { ConfirmButton } from './ConfirmButton'
+import { SyncNote } from './Home'
 
 export interface BackupData {
   progress: ProgressMap
@@ -11,6 +12,7 @@ export interface BackupData {
 }
 
 interface Props {
+  sync: SyncStatus
   settings: AppSettings
   onSettings: (s: AppSettings) => void
   data: BackupData
@@ -28,7 +30,7 @@ function parseBackup(text: string): BackupData {
   }
 }
 
-export function Settings({ settings, onSettings, data, onImport, onResetProgress }: Props) {
+export function Settings({ sync, settings, onSettings, data, onImport, onResetProgress }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const exportRef = useRef<HTMLTextAreaElement>(null)
   const [exportText, setExportText] = useState<string | null>(null)
@@ -80,10 +82,10 @@ export function Settings({ settings, onSettings, data, onImport, onResetProgress
         </select>
       </label>
 
-      <h3>백업</h3>
+      <h3>저장</h3>
+      <SyncNote sync={sync} />
       <p className="muted small">
-        진도와 직접 추가한 라인은 이 브라우저에만 저장됩니다. 다른 기기로 옮기거나 브라우저 데이터를 지우기 전에 백업
-        텍스트를 복사해 두세요.
+        다른 기기로 옮기거나 브라우저 데이터를 지우기 전에는 백업 텍스트를 복사해 두면 안전합니다.
       </p>
       <div className="actions">
         <button className="btn" onClick={makeBackup}>

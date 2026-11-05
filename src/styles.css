@@ -671,3 +671,15 @@ button.mv {
     flex: 1 1 100%;
   }
 }
+
+.sync {
+  margin: 10px 0 0;
+}
+
+.sync.ok {
+  color: var(--accent);
+}
+
+.sync.warn {
+  color: var(--warn);
+}

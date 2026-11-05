@@ -25,3 +25,15 @@ export function useStored<T>(key: string, fallback: T) {
   useEffect(() => saveJson(key, value), [key, value])
   return [value, setValue] as const
 }
+
+/** 이 환경에서 브라우저 저장소를 실제로 쓸 수 있는지 */
+export function storageAvailable(): boolean {
+  try {
+    const k = PREFIX + '__test'
+    localStorage.setItem(k, '1')
+    localStorage.removeItem(k)
+    return true
+  } catch {
+    return false
+  }
+}

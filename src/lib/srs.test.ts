@@ -25,3 +25,15 @@ describe('간격 반복', () => {
     expect(p.reps).toBe(4)
   })
 })
+
+describe('배우기 기록', () => {
+  it('배운 라인은 바로 기록되고 오늘 복습에 들어간다', async () => {
+    const { markLearned } = await import('./srs')
+    const p = markLearned(undefined, now)
+    expect(p.box).toBe(0)
+    expect(isDue(p, now)).toBe(true)
+    expect(schedule(p, true, now).box).toBe(1)
+    const existing = schedule(undefined, true, now)
+    expect(markLearned(existing, now)).toBe(existing)
+  })
+})

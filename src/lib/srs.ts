@@ -47,3 +47,8 @@ export function describeDue(p: LineProgress | undefined, now: number): string {
   const days = Math.round((p.due - startOfDay(now)) / DAY)
   return days <= 1 ? '내일 복습' : `${days}일 뒤 복습`
 }
+
+/** 배우기를 막 끝낸 라인: 아직 확인 테스트 전이라 오늘 복습 목록에 둡니다. */
+export function markLearned(prev: LineProgress | undefined, now: number): LineProgress {
+  return prev ?? { box: 0, due: now, reps: 0, lapses: 0, last: now }
+}
