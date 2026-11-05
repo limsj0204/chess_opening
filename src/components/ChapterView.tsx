@@ -1,6 +1,7 @@
 import { movesToText } from '../lib/pgn'
 import type { Chapter } from '../lib/repertoire'
 import { describeDue, type ProgressMap } from '../lib/srs'
+import { ConfirmButton } from './ConfirmButton'
 import type { QueueItem } from './Trainer'
 
 interface Props {
@@ -53,12 +54,7 @@ export function ChapterView(props: Props) {
             + 라인 추가
           </button>
           {chapter.custom && (
-            <button
-              className="btn danger"
-              onClick={() => confirm(`「${chapter.name}」 챕터와 라인을 모두 지울까요?`) && onDeleteChapter()}
-            >
-              챕터 삭제
-            </button>
+            <ConfirmButton label="챕터 삭제" confirmLabel="라인까지 모두 지울까요? 한 번 더 누르세요" onConfirm={onDeleteChapter} />
           )}
         </div>
       </section>
@@ -92,12 +88,7 @@ export function ChapterView(props: Props) {
                   {off ? '다시 사용' : '숨기기'}
                 </button>
                 {l.custom && (
-                  <button
-                    className="btn small-btn danger"
-                    onClick={() => confirm(`「${l.name}」 라인을 지울까요?`) && onDeleteLine(l.id)}
-                  >
-                    삭제
-                  </button>
+                  <ConfirmButton small label="삭제" confirmLabel="정말 삭제" onConfirm={() => onDeleteLine(l.id)} />
                 )}
               </div>
             </li>
